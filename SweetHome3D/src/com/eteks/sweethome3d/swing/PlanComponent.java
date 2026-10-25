@@ -2004,10 +2004,51 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
   }
   
   /**
-   * Prints this component plan at the scale given in the home print attributes or at a scale 
-   * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
+   * Prints one plan page for each viewable level of the home, in level order, at the scale
+   * given in the home print attributes or at a scale that makes it fill <code>pageFormat</code>
+   * imageable size if this attribute is <code>null</code>. The selected level is restored after
+   * each page. A home without levels is printed as before.
    */
   public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+    List<Level> printedLevels = getPrintedLevels();
+    if (printedLevels.isEmpty()) {
+      // Home without levels: print as before
+      return printSelectedLevel(g, pageFormat, pageIndex);
+    }
+    if (pageIndex >= printedLevels.size()) {
+      return NO_SUCH_PAGE;
+    }
+    // Temporarily select the level matching this page, so the existing drawing code renders it
+    Level selectedLevel = this.home.getSelectedLevel();
+    try {
+      this.home.setSelectedLevel(printedLevels.get(pageIndex));
+      printSelectedLevel(g, pageFormat, 0);
+      // Each viewable level gets its page, even if it contains no items
+      return PAGE_EXISTS;
+    } finally {
+      // Always restore the level the user had selected, even if rendering failed
+      this.home.setSelectedLevel(selectedLevel);
+    }
+  }
+
+  /**
+   * Returns the viewable levels of the home, in the home's level order.
+   */
+  private List<Level> getPrintedLevels() {
+    List<Level> printedLevels = new ArrayList<Level>();
+    for (Level level : this.home.getLevels()) {
+      if (level.isViewable()) {
+        printedLevels.add(level);
+      }
+    }
+    return printedLevels;
+  }
+
+  /**
+   * Prints the plan of the selected level at the scale given in the home print attributes
+   * or at a scale that makes it fill <code>pageFormat</code> imageable size.
+   */
+  private int printSelectedLevel(Graphics g, PageFormat pageFormat, int pageIndex) {
     List<Selectable> printedItems = getPaintedItems(); 
     Rectangle2D printedItemBounds = getItemsBounds(g, printedItems);
     if (printedItemBounds != null) {
